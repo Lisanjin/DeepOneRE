@@ -1,4 +1,3 @@
-import sys
 import pygame
 import os
 import json
@@ -8,7 +7,6 @@ from pygame.locals import *
 from random import randrange
 from sys import exit
 import cv2
-import _thread
 import threading
 
 os.makedirs("./meta/", exist_ok=True)
@@ -91,30 +89,30 @@ def get_resource(storyIds):
 
             path = r['path']
             md5 = r['md5']
+            name_list = fileName.split('/')
+            length = len(name_list)
+            name = name_list[length-1]
 
             if (fileName[-1] == "g"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path+"/"+md5+".jpg"
+                urlretrieve(url, image_resource_fold + name)
 
             if (fileName[-1] == "3"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path+"/"+md5+".mp3"
+                urlretrieve(url, voice_resource_fold + name)
 
             if (fileName[-1] == "4"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path+"/"+md5+".mp4"
+                urlretrieve(url, image_resource_fold + name)
 
             if (fileName[-1] == "t"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path + "/" + md5 + ".txt"
+                urlretrieve(url, text_resource_fold + name)
 
-            name_list = fileName.split('/')
-            length = len(name_list)
-            name = name_list[length-1]
-            if (adult == 3 and fileName[-1] == "t"):
-                name = name.replace('06.txt', '05.txt')
-
-            urlretrieve(url, image_resource_fold + name)
             print(name)
             i = i+1
     print("完毕")
@@ -125,7 +123,7 @@ def get_resource(storyIds):
 def load_meta(storyIds):
 
     file = open('./resource/'+storyIds+'/text/' +
-                storyIds+'.txt', "r", encoding='utf8')
+                get_storyId(storyIds)+'.txt', "r", encoding='utf8')
 
     meta_file = open('./meta/'+storyIds+"_meta.json", "w", encoding='utf8')
 
@@ -232,11 +230,17 @@ def load_list(json_list):
 class play_video(threading.Thread):
     run_count = False
     loop_count = True
+    json_file_name = ""
+    image_name = ""
 
-    def __init__(self, storyIds, index):
+    def __init__(self):
         threading.Thread.__init__(self)
-        self.storyIds = storyIds
-        self.index = index
+
+    def set_json_file_name(self,json_file_name):
+        self.json_file_name=json_file_name
+
+    def set_image_name(self,image_name):
+        self.image_name=image_name
 
     def set_run_count(self, count):
         self.run_count = count
@@ -249,7 +253,7 @@ class play_video(threading.Thread):
             if self.run_count:
                 break
 
-            video_fold = './resource/' + self.storyIds + '/image/' + self.index
+            video_fold = './resource/' + self.json_file_name + '/image/' + self.image_name
             video = cv2.VideoCapture(video_fold)
             success, video_image = video.read()
             run = success
@@ -279,9 +283,11 @@ class play_video(threading.Thread):
 def get_hsence_type(json_file_name):
     json_path = "./json/"
     with open(json_path+json_file_name+'.json', 'r') as load_f:
-        dojson = json.load(load_f)
-        adult = dojson['adult']
-        return adult
+        file_content = load_f.read()
+        if "mp4" in file_content:
+            return True
+        else:
+            return False
 
 
 def get_storyId(json_file_name):
@@ -292,6 +298,7 @@ def get_storyId(json_file_name):
 
 
 def play(play_count, meta):
+    
     image_name = meta["resource"][play_count]["bg"]
     text = meta["resource"][play_count]["msg"]
     voice = meta["resource"][play_count]["playvoice"]
@@ -309,6 +316,7 @@ def play(play_count, meta):
         text_lines = meta["resource"][play_count]["msg"].split('\n')
         for t in text_lines:
             textRect = (10, txt_h, 1280, 50)
+            pygame.draw.rect(screen, (0,0,0), textRect)
             text = text_font.render(t, True, WHITE, (0, 0, 0))
             screen.blit(text, textRect)
             txt_h = txt_h + 50
@@ -320,31 +328,53 @@ def play(play_count, meta):
             pygame.mixer.music.play()
 
 
-# def play_video(storyIds,index):
-#
-#     video_fold = './resource/' + storyIds + '/image/' +index
-#     video = cv2.VideoCapture(video_fold)
-#     success, video_image = video.read()
-#     video_control = False
-#     run = success
-#     while run:
-#
-#         for event in pygame.event.get():
-#             if event.type == pygame.QUIT:
-#                 run = False
-#
-#         success, video_image = video.read()
-#         if success:
-#             video_surf = pygame.image.frombuffer(video_image.tobytes(), video_image.shape[1::-1], "BGR")
-#             video_surf = pygame.transform.scale(video_surf, CG_SIZE)
-#             if video_control:
-#                 print('break___________')
-#                 break
-#
-#         else:
-#             video.set(cv2.CAP_PROP_POS_FRAMES, 0)
-#         screen.blit(video_surf, (10, 0))
-#         pygame.display.flip()
+def play_anime(play_count, meta):
+    screen.fill((0, 0, 0))
+    image_name = meta["resource"][play_count]["bg"]
+    text = meta["resource"][play_count]["msg"]
+    voice = meta["resource"][play_count]["playvoice"]
+
+    print(image_name)
+
+    if image_name == 'color_0_0_0':
+        # try:
+        #     th1.set_run_count(True)
+        # except:
+        #     pass
+        cg = pygame.image.load('color_0_0_0.jpg').convert_alpha()
+        screen.blit(cg, (10, 0))
+    elif image_name != meta["resource"][play_count - 1]["bg"] :
+            if  meta["resource"][play_count - 1]["bg"]!='color_0_0_0':
+                try:
+                    prev_th_count = meta["resource"][play_count - 1]["bg"]
+                    globals()["th_"+prev_th_count].set_run_count(True)
+                except:
+                    pass
+
+            th_count = image_name
+            globals()["th_"+str(th_count)] = play_video()
+            globals()["th_"+str(th_count)].set_image_name(image_name)
+            globals()["th_"+str(th_count)].set_json_file_name(json_file_name)
+            globals()["th_"+str(th_count)].start()
+            th_list.append("th_"+str(th_count))
+              
+
+    txt_h = 730
+    if (text != '') and (text != 'endwmsg'):
+        text_lines = meta["resource"][play_count]["msg"].split('\n')
+        for t in text_lines:
+            textRect = (10, txt_h, 1280, 50)
+            pygame.draw.rect(screen, (0,0,0), textRect)
+            text = text_font.render(t, True, WHITE, (0, 0, 0))
+            screen.blit(text, textRect)
+            txt_h = txt_h + 50
+
+    if play_count > 1:
+        if (voice != 'null') and (voice != meta["resource"][play_count-1]["playvoice"]):
+            print('./resource/'+json_file_name+'/voice/'+voice)
+            pygame.mixer.music.load('./resource/'+json_file_name+'/voice/'+voice)
+            pygame.mixer.music.play()
+
 
 
 # 常量
@@ -394,6 +424,7 @@ is_play = False
 is_main = True
 json_selected = False
 play_count= 0
+th_list=[]
 # 初始页码
 json_list_page = 0
 
@@ -462,20 +493,52 @@ while True:
                     screen.fill((0, 0, 0))
 
         if is_play:
-            length = open_meta(storyIds)[1]
-            meta = open_meta(storyIds)[0]
+            length = open_meta(json_file_name)[1]
+            meta = open_meta(json_file_name)[0]
             text_next_button.show_button()
-            if event.type == MOUSEBUTTONDOWN:
-                x = event.pos[0]
-                y = event.pos[1]
 
-                if text_next_button.in_rect(x, y) and play_count<length:
-                    play(play_count,meta)
-                    play_count = play_count+1
+            
+            if get_hsence_type(json_file_name):
+                if event.type == MOUSEBUTTONDOWN:
+                    x = event.pos[0]
+                    y = event.pos[1]
+
+                    if text_next_button.in_rect(x, y) and play_count<length:
+                        play_anime(play_count,meta)
+                        play_count = play_count+1
+                    elif text_next_button.in_rect(x, y) and play_count == length:
+                        play_count = 0
+                        is_play = False
+                        is_main = True
+                        json_list_page = 0
+                        json_selected = False
+                        print("-----------end------------")
+                        try:
+                            for th in th_list:
+                                globals()[th].set_run_count(True)
+                        except:
+                            pass
+                        th_list=[]
+                        screen.fill((0,0,0))
+
+            else:
+                if event.type == MOUSEBUTTONDOWN:
+                    x = event.pos[0]
+                    y = event.pos[1]
+
+                    if text_next_button.in_rect(x, y) and play_count<length:
+                        play(play_count,meta)
+                        play_count = play_count+1
+                    elif text_next_button.in_rect(x, y) and play_count == length:
+                        play_count = 0
+                        is_play = False
+                        is_main = True
+                        json_list_page = 0
+                        json_selected = False
+                        screen.fill((0,0,0))
 
         if event.type == QUIT:
             exit()
-        if event.type == MOUSEBUTTONDOWN:
-            pass
+        
 
     pygame.display.flip()
