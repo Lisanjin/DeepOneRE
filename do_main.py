@@ -75,7 +75,6 @@ def get_resource(storyIds):
     with open(json_path+storyIds+'.json', 'r') as load_f:
         dojson = json.load(load_f)
         json_len = len(dojson['resource'])
-        print(json_len)
         i = 1
         adult = dojson['adult']
         for r in dojson['resource']:
@@ -277,6 +276,50 @@ class play_video(threading.Thread):
                 pygame.display.flip()
 
 
+def get_hsence_type(json_file_name):
+    json_path = "./json/"
+    with open(json_path+json_file_name+'.json', 'r') as load_f:
+        dojson = json.load(load_f)
+        adult = dojson['adult']
+        return adult
+
+
+def get_storyId(json_file_name):
+    json_path = "./json/"
+    with open(json_path+json_file_name+'.json', 'r') as load_f:
+        dojson = json.load(load_f)
+        return str(dojson['storyIds'][0])
+
+
+def play(play_count, meta):
+    image_name = meta["resource"][play_count]["bg"]
+    text = meta["resource"][play_count]["msg"]
+    voice = meta["resource"][play_count]["playvoice"]
+
+    if image_name == 'color_0_0_0':
+        cg = pygame.image.load('color_0_0_0.jpg').convert_alpha()
+        screen.blit(cg, (10, 0))
+    else:
+        cg = load_cg(storyIds, image_name)
+        cg = pygame.transform.scale(cg, CG_SIZE)
+        screen.blit(cg, (10, 0))
+
+    txt_h = 730
+    if (text != '') and (text != 'endwmsg'):
+        text_lines = meta["resource"][play_count]["msg"].split('\n')
+        for t in text_lines:
+            textRect = (10, txt_h, 1280, 50)
+            text = text_font.render(t, True, WHITE, (0, 0, 0))
+            screen.blit(text, textRect)
+            txt_h = txt_h + 50
+
+    if play_count > 1:
+        if (voice != 'null') and (voice != meta["resource"][play_count-1]["playvoice"]):
+            print('./resource/'+storyIds+'/voice/'+voice)
+            pygame.mixer.music.load('./resource/'+storyIds+'/voice/'+voice)
+            pygame.mixer.music.play()
+
+
 # def play_video(storyIds,index):
 #
 #     video_fold = './resource/' + storyIds + '/image/' +index
@@ -350,6 +393,7 @@ storyIds = ''
 is_play = False
 is_main = True
 json_selected = False
+play_count= 0
 # 初始页码
 json_list_page = 0
 
@@ -366,10 +410,8 @@ while True:
 
     for event in pygame.event.get():
 
-        
-
         if is_main:
-            
+
             new_list = page_list(json_list_page, json_list)
             json_button_list = load_list(new_list)
 
@@ -383,9 +425,8 @@ while True:
                 for bt in json_button_list:
                     if bt.in_rect(x, y):
                         json_file_name = bt.text
-                        print(json_file_name)
+                        storyIds = get_storyId(json_file_name)
                         json_selected = True
-
 
                 if pages_up_button.in_rect(x, y):
                     json_list_page = json_list_page + 1
@@ -393,7 +434,7 @@ while True:
                         json_list_page = 0
                     new_list = page_list(json_list_page, json_list)
                     json_button_list = load_list(new_list)
-                    screen.fill((0,0,0))
+                    screen.fill((0, 0, 0))
 
                 if pages_down_button.in_rect(x, y):
                     json_list_page = json_list_page - 1
@@ -401,9 +442,8 @@ while True:
                         json_list_page = pages_size-1
                     new_list = page_list(json_list_page, json_list)
                     json_button_list = load_list(new_list)
-                    screen.fill((0,0,0))
+                    screen.fill((0, 0, 0))
 
-        
         if json_selected:
             load_button.show_button()
             play_button.show_button()
@@ -412,17 +452,26 @@ while True:
                 x = event.pos[0]
                 y = event.pos[1]
 
-                if load_button.in_rect(x,y):
+                if load_button.in_rect(x, y):
                     get_resource(json_file_name)
-                if play_button.in_rect(x,y):
+                if play_button.in_rect(x, y):
                     is_play = True
                     json_selected = False
                     is_main = False
-                    screen.fill((0,0,0))
+                    load_meta(json_file_name)
+                    screen.fill((0, 0, 0))
 
         if is_play:
-            print("playing")
-            pass
+            length = open_meta(storyIds)[1]
+            meta = open_meta(storyIds)[0]
+            text_next_button.show_button()
+            if event.type == MOUSEBUTTONDOWN:
+                x = event.pos[0]
+                y = event.pos[1]
+
+                if text_next_button.in_rect(x, y) and play_count<length:
+                    play(play_count,meta)
+                    play_count = play_count+1
 
         if event.type == QUIT:
             exit()
