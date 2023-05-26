@@ -8,6 +8,8 @@ from random import randrange
 from sys import exit
 import cv2
 import threading
+import hashlib
+import requests
 
 os.makedirs("./meta/", exist_ok=True)
 os.makedirs("./resource/", exist_ok=True)
@@ -301,6 +303,8 @@ def play(play_count, meta):
     
     image_name = meta["resource"][play_count]["bg"]
     text = meta["resource"][play_count]["msg"]
+    if (text != '') and (text != 'endwmsg') and translate_status:
+        text = translate_word(text)
     voice = meta["resource"][play_count]["playvoice"]
 
     if image_name == 'color_0_0_0':
@@ -313,7 +317,7 @@ def play(play_count, meta):
 
     txt_h = 730
     if (text != '') and (text != 'endwmsg'):
-        text_lines = meta["resource"][play_count]["msg"].split('\n')
+        text_lines = text.split('\n')
         for t in text_lines:
             textRect = (10, txt_h, 1280, 50)
             pygame.draw.rect(screen, (0,0,0), textRect)
@@ -332,6 +336,8 @@ def play_anime(play_count, meta):
     screen.fill((0, 0, 0))
     image_name = meta["resource"][play_count]["bg"]
     text = meta["resource"][play_count]["msg"]
+    if (text != '') and (text != 'endwmsg') and translate_status:
+        text = translate_word(text)
     voice = meta["resource"][play_count]["playvoice"]
 
     print(image_name)
@@ -361,7 +367,7 @@ def play_anime(play_count, meta):
 
     txt_h = 730
     if (text != '') and (text != 'endwmsg'):
-        text_lines = meta["resource"][play_count]["msg"].split('\n')
+        text_lines = text.split('\n')
         for t in text_lines:
             textRect = (10, txt_h, 1280, 50)
             pygame.draw.rect(screen, (0,0,0), textRect)
@@ -375,7 +381,52 @@ def play_anime(play_count, meta):
             pygame.mixer.music.load('./resource/'+json_file_name+'/voice/'+voice)
             pygame.mixer.music.play()
 
+#翻译相关
+#baidu翻译apikey读取
+def read_api_key(filename):
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+        appid = lines[0].strip()
+        secret_key = lines[1].strip()
+    return appid, secret_key
 
+#md5
+def generate_sign(appid, q, salt, secret_key):
+    sign_str = appid + q + salt + secret_key
+    sign = hashlib.md5(sign_str.encode()).hexdigest()
+    return sign
+
+#翻译请求
+def translate_word(q):
+    base_url = 'http://api.fanyi.baidu.com/api/trans/vip/translate'
+
+    from_lang = 'jp'
+    to_lang = 'zh'
+    salt = '1435660288'
+
+    # 读取文件并获取API密钥
+    appid, secret_key = read_api_key('apikey.txt')
+    sign = generate_sign(appid, q, salt, secret_key)
+
+    # 请求参数
+    params = {
+        'q': q,
+        'from': from_lang,
+        'to': to_lang,
+        'appid': appid,
+        'salt': salt,
+        'sign': sign
+    }
+
+    response = requests.get(base_url, params=params)
+    translation = response.json()['trans_result'][0]['dst']
+    return translation
+
+def get_translate_status():
+    if translate_word("幻夢境") == "幻梦境":
+        return True
+    else:
+        return False
 
 # 常量
 display_width = 1300
@@ -394,7 +445,7 @@ pygame.display.set_caption("DeepOne")
 
 screen = pygame.display.set_mode(GAME_SIZE, 0, 32)
 game_font = pygame.font.Font('msgothic.ttc', 50)
-text_font = pygame.font.Font('msgothic.ttc', 30)
+
 
 # rect
 next_button_rect = (1190, 900, 100, 50)
@@ -425,6 +476,13 @@ is_main = True
 json_selected = False
 play_count= 0
 th_list=[]
+
+#翻译启用
+translate_status = get_translate_status()
+if translate_status:
+    text_font = pygame.font.Font('SIMFANG.TTF', 30)
+else:
+    text_font = pygame.font.Font('msgothic.ttc', 30)
 # 初始页码
 json_list_page = 0
 
