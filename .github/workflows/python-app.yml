@@ -1,39 +1,65 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+name: PyInstaller Windows
 
-name: Python application
-
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
+    
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
-permissions:
-  contents: read
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  build-windows:
+    runs-on: windows-2019
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        pytest
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Install Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.8'
+          architecture: 'x64'
+      - name: Install requirements and installer
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Run pyinstaller
+        run: |
+          python -m PyInstaller -F do_main.py
+      - uses: actions/upload-artifact@v2
+        with:
+          name: DeepOneRE
+          path: dist/
+      
+      - name: create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        with:
+          tag_name: ${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          body: |
+            Test Release
+          draft: false
+          prerelease: false
+          
+      # Since we have a directory, create a zip
+      - name: zip the artifect dir into a zip
+        run: |
+          powershell Compress-Archive D:\a\SWEN90013-Data-Platform-for-Biomaterial-Testing\SWEN90013-Data-Platform-for-Biomaterial-Testing\dist\DeepOneRE D:\a\SWEN90013-Data-Platform-for-Biomaterial-Testing\SWEN90013-Data-Platform-for-Biomaterial-Testing\dist\DeepOneRE.zip
+      
+      - name: Upload release asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+           upload_url: ${{ steps.create_release.outputs.upload_url }}
+           asset_path: dist/DeepOneRE.zip
+           asset_name: DeepOneRE.zip
+           asset_content_type: application/zip
