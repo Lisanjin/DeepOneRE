@@ -29,11 +29,11 @@ jobs:
           pip install pyinstaller
       - name: Run pyinstaller
         run: |
-          python -m PyInstaller do_main.py
+          python -m PyInstaller -F do_main.py
       - uses: actions/upload-artifact@v2
         with:
-          name: app
-          path: dist/app
+          name: DeepOneRE
+          path: dist/
       
       - name: create release
         id: create_release
@@ -52,7 +52,7 @@ jobs:
       # Since we have a directory, create a zip
       - name: zip the artifect dir into a zip
         run: |
-          powershell Compress-Archive D:\a\SWEN90013-Data-Platform-for-Biomaterial-Testing\SWEN90013-Data-Platform-for-Biomaterial-Testing\dist\app D:\a\SWEN90013-Data-Platform-for-Biomaterial-Testing\SWEN90013-Data-Platform-for-Biomaterial-Testing\dist\app.zip
+          powershell Compress-Archive D:\a\SWEN90013-Data-Platform-for-Biomaterial-Testing\SWEN90013-Data-Platform-for-Biomaterial-Testing\dist\DeepOneRE D:\a\SWEN90013-Data-Platform-for-Biomaterial-Testing\SWEN90013-Data-Platform-for-Biomaterial-Testing\dist\DeepOneRE.zip
       
       - name: Upload release asset
         id: upload-release-asset
@@ -61,6 +61,6 @@ jobs:
            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
            upload_url: ${{ steps.create_release.outputs.upload_url }}
-           asset_path: dist/app.zip
-           asset_name: app.zip
+           asset_path: dist/DeepOneRE.zip
+           asset_name: DeepOneRE.zip
            asset_content_type: application/zip
