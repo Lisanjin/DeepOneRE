@@ -2,4 +2,7 @@
 /meta/*
 bokusen_main.py
 test.py
-apikey.txt
+*.exe
+*.spec
+/build/*
+return False

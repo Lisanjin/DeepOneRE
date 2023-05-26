@@ -423,10 +423,18 @@ def translate_word(q):
     return translation
 
 def get_translate_status():
-    if translate_word("幻夢境") == "幻梦境":
-        return True
-    else:
+    try:
+        if translate_word("幻夢境") == "幻梦境":
+            print("翻译可用")
+            return True
+        else:
+            print("翻译不可用")
+            return False
+    except:
+        print("翻译不可用")
         return False
+    
+        
 
 # 常量
 display_width = 1300
