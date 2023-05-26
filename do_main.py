@@ -430,7 +430,7 @@ def get_translate_status():
 
 # 常量
 display_width = 1300
-display_height = 1000
+display_height = 960
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GAME_SIZE = (display_width, display_height)
