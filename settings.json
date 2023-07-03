@@ -1,0 +1,11 @@
+{
+    "下载线程数":25,
+    "窗口宽度":1300,
+    "窗口高度":960,
+    "翻译api":{
+        "use_translate":"no",
+        "appid":"20220523001226432",
+        "secret_key":"xCopU4Olj5GFvHEAH9kz",
+        "to_language":"zh"
+    }
+}

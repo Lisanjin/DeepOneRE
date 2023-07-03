@@ -10,10 +10,18 @@ import cv2
 import threading
 import hashlib
 import requests
+import concurrent.futures
 
 os.makedirs("./meta/", exist_ok=True)
 os.makedirs("./resource/", exist_ok=True)
 
+user_setting_file =  open("settings.json",'r',encoding='utf8') 
+user_setting = json.load(user_setting_file)
+user_setting_file.close()
+
+print('----用户设置，请到setting.json中修改------')
+print(user_setting)
+print('----------------------------------------')
 
 class Button:
     rect = (0, 0, 0, 0)
@@ -60,6 +68,22 @@ class Button:
         iny = (y > self.rect[1]) and (y < (self.rect[1]+self.rect[3]))
         return inx and iny
 
+def download_file(url, filename):
+    print(f'Downloading {filename}...')
+    download_times = 5
+    while download_times > 0:
+        try:
+            urlretrieve(url, filename)
+        except:
+            print("error downloading : " + filename)
+            download_times = download_times - 1
+            continue
+        else:
+            break
+
+
+    
+    print(f'{filename} downloaded.')
 
 # 加载资源
 def get_resource(storyIds):
@@ -72,22 +96,17 @@ def get_resource(storyIds):
 
     json_path = "./json/"
 
+    
     with open(json_path+storyIds+'.json', 'r') as load_f:
         dojson = json.load(load_f)
-        json_len = len(dojson['resource'])
-        i = 1
-        adult = dojson['adult']
+
+        file_dict = {}
+
         for r in dojson['resource']:
 
             fileName = ""
             fileName = r['fileName']
 
-            loading_text = 'loading :' + str(i) + '/' + str(json_len)
-
-            print(loading_text)
-
-            loading_text_button = Button(loading_text_rect, 'ojbk')
-            loading_text_button.show_button()
 
             path = r['path']
             md5 = r['md5']
@@ -98,25 +117,26 @@ def get_resource(storyIds):
             if (fileName[-1] == "g"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path+"/"+md5+".jpg"
-                urlretrieve(url, image_resource_fold + name)
+                file_dict[url] = image_resource_fold + name
 
             if (fileName[-1] == "3"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path+"/"+md5+".mp3"
-                urlretrieve(url, voice_resource_fold + name)
+                file_dict[url] = voice_resource_fold + name
 
             if (fileName[-1] == "4"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path+"/"+md5+".mp4"
-                urlretrieve(url, image_resource_fold + name)
+                file_dict[url] = image_resource_fold + name
 
             if (fileName[-1] == "t"):
                 url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
                     path + "/" + md5 + ".txt"
-                urlretrieve(url, text_resource_fold + name)
+                file_dict[url] = text_resource_fold + name
 
-            print(name)
-            i = i+1
+    with concurrent.futures.ThreadPoolExecutor(max_workers=下载线程数) as executor:
+            futures = [executor.submit(download_file, url, filename) for url, filename in file_dict.items()]
+    
     print("完毕")
 
 # 创建meta
@@ -142,8 +162,7 @@ def load_meta(storyIds):
         lines = t.split('\n')
         for i in lines:
             if 'msg' in i:
-                msg = i.split(',')[-2].replace('</outline>',
-                                               '').replace('<outline width=2 color=black>', '')
+                msg = i.split(',')[-2].replace('</outline>','').replace('<outline width=2 color=black>', '')
         for i in lines:
             if 'playvoice' in i:
                 playvoice = i.split(',')[-1]
@@ -336,8 +355,11 @@ def play_anime(play_count, meta):
     screen.fill((0, 0, 0))
     image_name = meta["resource"][play_count]["bg"]
     text = meta["resource"][play_count]["msg"]
+    print(text)
     if (text != '') and (text != 'endwmsg') and translate_status:
         text = translate_word(text)
+        print(text)
+
     voice = meta["resource"][play_count]["playvoice"]
 
     print(image_name)
@@ -382,14 +404,6 @@ def play_anime(play_count, meta):
             pygame.mixer.music.play()
 
 #翻译相关
-#baidu翻译apikey读取
-def read_api_key(filename):
-    with open(filename, 'r') as file:
-        lines = file.readlines()
-        appid = lines[0].strip()
-        secret_key = lines[1].strip()
-    return appid, secret_key
-
 #md5
 def generate_sign(appid, q, salt, secret_key):
     sign_str = appid + q + salt + secret_key
@@ -401,13 +415,14 @@ def translate_word(q):
     base_url = 'http://api.fanyi.baidu.com/api/trans/vip/translate'
 
     from_lang = 'jp'
-    to_lang = 'zh'
+    to_lang = translate_to_language
     salt = '1435660288'
 
-    # 读取文件并获取API密钥
-    appid, secret_key = read_api_key('apikey.txt')
-    sign = generate_sign(appid, q, salt, secret_key)
 
+    appid = translate_appid
+    secret_key = translate_secret_key
+
+    sign = generate_sign(appid, q, salt, secret_key)
     # 请求参数
     params = {
         'q': q,
@@ -423,28 +438,39 @@ def translate_word(q):
     return translation
 
 def get_translate_status():
-    try:
-        if translate_word("幻夢境") == "幻梦境":
-            print("翻译可用")
-            return True
-        else:
+    if use_translate:
+        try:
+            if translate_word("幻夢境") == "幻梦境":
+                print("翻译可用")
+                return True
+            else:
+                print("翻译不可用")
+                return False
+        except:
             print("翻译不可用")
             return False
-    except:
-        print("翻译不可用")
-        return False
+    else:
+        return use_translate
     
         
 
 # 常量
-display_width = 1300
-display_height = 960
+
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
-GAME_SIZE = (display_width, display_height)
+
 CG_SIZE = (1280, 720)
 TEXT_SIZE = (1000, 200)
 
+display_width = user_setting['窗口宽度']
+display_height = user_setting['窗口高度']
+GAME_SIZE = (display_width, display_height)
+
+下载线程数 = user_setting['下载线程数']
+use_translate = True if user_setting['翻译api']['use_translate'] == 'yes' else False
+translate_appid = user_setting['翻译api']['appid']
+translate_secret_key = user_setting['翻译api']['secret_key']
+translate_to_language = user_setting['翻译api']['to_language']
 
 # 初始化
 pygame.init()
@@ -485,7 +511,7 @@ json_selected = False
 play_count= 0
 th_list=[]
 
-#翻译启用
+#翻译状态
 translate_status = get_translate_status()
 if translate_status:
     text_font = pygame.font.Font('SIMFANG.TTF', 30)
