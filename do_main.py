@@ -11,9 +11,11 @@ import threading
 import hashlib
 import requests
 import concurrent.futures
-
+import time
+import webbrowser
 os.makedirs("./meta/", exist_ok=True)
 os.makedirs("./resource/", exist_ok=True)
+os.makedirs("./episode/", exist_ok=True)
 
 user_setting_file =  open("settings.json",'r',encoding='utf8') 
 user_setting = json.load(user_setting_file)
@@ -337,6 +339,8 @@ def play(play_count, meta):
     txt_h = 730
     if (text != '') and (text != 'endwmsg'):
         text_lines = text.split('\n')
+        while len(text_lines) < 4:
+            text_lines.append('')
         for t in text_lines:
             textRect = (10, txt_h, 1280, 50)
             pygame.draw.rect(screen, (0,0,0), textRect)
@@ -471,6 +475,7 @@ use_translate = True if user_setting['翻译api']['use_translate'] == 'yes' else
 translate_appid = user_setting['翻译api']['appid']
 translate_secret_key = user_setting['翻译api']['secret_key']
 translate_to_language = user_setting['翻译api']['to_language']
+bot_check = True if user_setting['是否喜欢furau'] == 'yes' else False
 
 # 初始化
 pygame.init()
@@ -529,7 +534,7 @@ pages_size = math.ceil(len(json_list)/6)
 video_control = False
 
 
-while True:
+while bot_check:
 
     for event in pygame.event.get():
 
@@ -634,3 +639,13 @@ while True:
         
 
     pygame.display.flip()
+
+print("不喜欢就爬！")
+
+
+
+while True:
+    print("————————开始植入芙拉病毒————————")
+    print("————————神绊导师！启动！————————")
+    webbrowser.open('https://pc-play.games.dmm.co.jp/play/cravesagax/')
+    time.sleep(10)

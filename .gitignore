@@ -1,6 +1,8 @@
 /resource/*
 /meta/*
-bokusen_main.py
+/do_main.build/*
+/do_main.dist/*
+/do_main.onefile-build/*
 test.py
 *.exe
 *.spec
