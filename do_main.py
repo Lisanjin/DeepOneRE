@@ -30,10 +30,14 @@ class Button:
     text = 0
     text_color = (255, 0, 0)
     button_color = (255, 255, 255)
+    button_image =""
 
     def __init__(self, rect, text):
         self.rect = rect
         self.text = text
+
+    def set_img(self,img):
+        self.button_image = img
 
     def set_rect(self, r):
         self.rect = r
@@ -56,6 +60,10 @@ class Button:
     def set_rect_h(self, h):
         new_rect = (self.rect[0], self.rect[1], self.rect[2], h)
         self.rect = new_rect
+    
+    def show_image(self):
+        cg = pygame.image.load(self.button_image).convert_alpha()
+        screen.blit(cg, self.rect[:2])
 
     def show_button(self):
         button_text = game_font.render(
@@ -70,8 +78,50 @@ class Button:
         iny = (y > self.rect[1]) and (y < (self.rect[1]+self.rect[3]))
         return inx and iny
 
+def getMD5(input):
+    input = '47cd76e43f74bbc2e1baaf194d07e1fa' + input
+    result = hashlib.md5(input.encode()) 
+    return result.hexdigest() 
+
+def get_real_path(str1):
+    e=''
+    i=''
+    a=''
+    n=''
+    if str1[0]=='c' or str1[0]=='d' or str1[0]== 'e' or str1[0]=='f':
+        e = str1[6:8]+'/'
+        i = str1[2:4] + "/"
+        a = str1[4:6] + "/"
+        n = str1[0:2] + "/" 
+    elif str1[0]=='8' or str1[0] =='9' or str1[0]=='a' or str1[0] =='b':
+        e = str1[4:6]+ "/"
+        i = str1[0:2]+ "/"
+        a = str1[6:8]+ "/"
+        n = str1[2:4]+ "/"
+    elif int(str1[0])>=4 and int(str1[0])<=7:
+        e = str1[2:4]+ "/"
+        i = str1[6:8]+ "/"
+        a = str1[0:2]+ "/"
+    elif int(str1[0])>=0 and int(str1[0])<=3:
+        e = str1[0:2]+ "/"
+        i = str1[4:6]+ "/"
+    return  e + i + a + n
+
+def get_url(file_name):
+    cdn_url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_game_hd/"
+    md5 = getMD5(file_name)
+    path = get_real_path(md5)
+    file_end = '.'+file_name.split(".")[-1]
+    if '.atlas.txt' in file_name:
+        file_end = '.atlas.txt'
+    return cdn_url+path+md5+file_end
+
 def download_file(url, filename):
+
     print(f'Downloading {filename}...')
+    if os.path.exists(filename):
+        print(f'{filename} 已下载，跳过.')
+        return
     download_times = 5
     while download_times > 0:
         try:
@@ -82,10 +132,19 @@ def download_file(url, filename):
             continue
         else:
             break
+    print(f'{filename} downloaded.')
 
+# 加载预览图
+def load_preview(json_list):
+    print("加载预览图……")
+    os.makedirs('./episode/', exist_ok=True)
+    for json_file in json_list:
+        episode_name= "gallery/episode/"+json_file.split("_")[0]+".png"
+        episode_url = get_url(episode_name)
+        download_file(episode_url,"episode/"+json_file.split("_")[0]+".png")
+    print("加载预览图完成")
 
     
-    print(f'{filename} downloaded.')
 
 # 加载资源
 def get_resource(storyIds):
@@ -98,7 +157,6 @@ def get_resource(storyIds):
 
     json_path = "./json/"
 
-    
     with open(json_path+storyIds+'.json', 'r') as load_f:
         dojson = json.load(load_f)
 
@@ -228,8 +286,8 @@ def page_list(p, page_list):
     new_list = []
     list_len = len(json_list)
     i = 0
-    while (i < 6) and (p*6+i < list_len):
-        new_list.append(page_list[p*6+i])
+    while (i < 9) and (p*9+i < list_len):
+        new_list.append(page_list[p*9+i])
         i = i+1
     return new_list
 
@@ -238,15 +296,23 @@ def page_list(p, page_list):
 
 def load_list(json_list):
 
-    li_h = 200
+    li_h = 100
+    li_w = 150
+    change_cow = 0
     button_list = []
     for li in json_list:
-        li_rect = (550, li_h, 200, 50)
+        if change_cow % 3 == 0:
+            li_w = li_w+200
+            li_h = 100
+
+        li_rect = (li_w, li_h, 192 , 108)
         li_text = li
         li_button = Button(li_rect, li_text)
-        li_button.show_button()
+        li_button.set_img("./episode/"+li.split('_')[0] + '.png')
+        li_button.show_image()
         button_list.append(li_button)
-        li_h = li_h + 50
+        li_h = li_h + 120
+        change_cow = change_cow + 1
     return button_list
 
 
@@ -528,8 +594,9 @@ json_list_page = 0
 # 数据
 # 寝室列表
 json_list = get_list()
+load_preview(json_list)
 # 寝室数量
-pages_size = math.ceil(len(json_list)/6)
+pages_size = math.ceil(len(json_list)/9)
 
 video_control = False
 

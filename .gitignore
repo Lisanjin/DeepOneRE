@@ -1,5 +1,6 @@
 /resource/*
 /meta/*
+/episode/*
 /do_main.build/*
 /do_main.dist/*
 /do_main.onefile-build/*
