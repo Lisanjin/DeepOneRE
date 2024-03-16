@@ -1,5 +1,5 @@
 import pygame
-import os
+import os,re
 import json
 import math
 from urllib.request import urlretrieve
@@ -144,134 +144,48 @@ def load_preview(json_list):
         download_file(episode_url,"episode/"+json_file.split("_")[0]+".png")
     print("加载预览图完成")
 
-    
-
 # 加载资源
-def get_resource(storyIds):
-    image_resource_fold = './resource/'+storyIds+'/image/'
-    voice_resource_fold = './resource/'+storyIds+'/voice/'
-    text_resource_fold = './resource/'+storyIds+'/text/'
-    os.makedirs(image_resource_fold, exist_ok=True)
-    os.makedirs(voice_resource_fold, exist_ok=True)
-    os.makedirs(text_resource_fold, exist_ok=True)
+def get_resource(jsonId):
 
     json_path = "./json/"
 
-    with open(json_path+storyIds+'.json', 'r') as load_f:
+    with open(json_path+jsonId+'.json', 'r') as load_f:
         dojson = json.load(load_f)
-
         file_dict = {}
-
         for r in dojson['resource']:
-
-            fileName = ""
-            fileName = r['fileName']
-
-
+            fileName = "./resource/"+jsonId+"/"+r['fileName']
+            name = fileName.split("/")[-1]
             path = r['path']
+            os.makedirs(fileName.replace("/"+name,""),exist_ok=True)
             md5 = r['md5']
-            name_list = fileName.split('/')
-            length = len(name_list)
-            name = name_list[length-1]
+            end = fileName.split(".")[-1]
 
-            if (fileName[-1] == "g"):
-                url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
-                    path+"/"+md5+".jpg"
-                file_dict[url] = image_resource_fold + name
-
-            if (fileName[-1] == "3"):
-                url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
-                    path+"/"+md5+".mp3"
-                file_dict[url] = voice_resource_fold + name
-
-            if (fileName[-1] == "4"):
-                url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
-                    path+"/"+md5+".mp4"
-                file_dict[url] = image_resource_fold + name
-
-            if (fileName[-1] == "t"):
-                url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + \
-                    path + "/" + md5 + ".txt"
-                file_dict[url] = text_resource_fold + name
+            url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + path+"/"+md5+"."+ end
+            file_dict[url] = fileName
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=下载线程数) as executor:
             futures = [executor.submit(download_file, url, filename) for url, filename in file_dict.items()]
-    
+
     print("完毕")
 
-# 创建meta
-
-
-def load_meta(storyIds):
-
-    file = open('./resource/'+storyIds+'/text/' +
-                get_storyId(storyIds)+'.txt', "r", encoding='utf8')
-
-    meta_file = open('./meta/'+storyIds+"_meta.json", "w", encoding='utf8')
-
-    text_data = file.read()
-    text = text_data.split("\n\n")
-
-    meta = '{"resource":['
-    msg = 'null'
-    playvoice = 'null'
-    bg = 'null'
-    new_resoucer = ''
-    new_msg = ''
-    for t in text:
-        lines = t.split('\n')
-        for i in lines:
-            if 'msg' in i:
-                msg = i.split(',')[-2].replace('</outline>','').replace('<outline width=2 color=black>', '')
-        for i in lines:
-            if 'playvoice' in i:
-                playvoice = i.split(',')[-1]
-        for i in lines:
-            if 'bg,' in i:
-                bg = i.split(',')[1]
-        for i in lines:
-            if 'movie,' in i:
-                bg = i.split(',')[1]
-
-        if new_msg != msg:
-            new_resoucer = '{"msg" : "'+msg+'","playvoice" : "' + \
-                playvoice.split('/')[-1]+'","bg" :"' + \
-                bg.split('/')[-1] + '"},\n'
-            new_msg = msg
-            meta = meta + new_resoucer
-
-    meta = meta + ']}'
-    meta = meta.replace('},\n]}', '}]}')
-
-    meta_file.write(meta)
-
-    file.close()
-    meta_file.close()
-
-    return meta
-
-# 读取meta
-
-
-def open_meta(storyIds):
-    f = open("./meta/"+storyIds+"_meta.json", 'r', encoding='utf8')
-    content = f.read()
-    meta = json.loads(content)
-    length = len(meta["resource"])
-    return [meta, length]
-
-# 载入cg
-
-
-def load_cg(storyIds, image_name):
-    cg_url = "./resource/"+storyIds+"/image/"+image_name
-    print(cg_url)
-    return pygame.image.load(cg_url).convert_alpha()
 
 # hs列表相关
+
+# 重整json格式
+def rename_json_list():
+    files = os.listdir('./json/')
+    for file in files:
+        with open('./json/'+file,"r",encoding="utf8") as f:
+            json_data = json.loads(f.read())
+            
+            new_name = str(json_data["storyIds"][0])
+            adult = str(json_data["adult"])
+            if adult != "1":
+                new_name = new_name+"_"+adult
+            new_name = new_name + ".json"
+        os.rename('./json/'+file,'./json/'+new_name)
+
 # 获取列表
-
-
 def get_list():
     json_list = []
     files = os.listdir('./json/')
@@ -280,8 +194,6 @@ def get_list():
     return json_list
 
 # 列表分页
-
-
 def page_list(p, page_list):
     new_list = []
     list_len = len(json_list)
@@ -292,8 +204,6 @@ def page_list(p, page_list):
     return new_list
 
 # 显示列表
-
-
 def load_list(json_list):
 
     li_h = 100
@@ -319,17 +229,13 @@ def load_list(json_list):
 class play_video(threading.Thread):
     run_count = False
     loop_count = True
-    json_file_name = ""
-    image_name = ""
+    video_file_name = ""
 
     def __init__(self):
         threading.Thread.__init__(self)
 
-    def set_json_file_name(self,json_file_name):
-        self.json_file_name=json_file_name
-
-    def set_image_name(self,image_name):
-        self.image_name=image_name
+    def set_video_file_name(self,video_file_name):
+        self.video_file_name = video_file_name
 
     def set_run_count(self, count):
         self.run_count = count
@@ -342,7 +248,7 @@ class play_video(threading.Thread):
             if self.run_count:
                 break
 
-            video_fold = './resource/' + self.json_file_name + '/image/' + self.image_name
+            video_fold = './resource/' + jsonId + '/' + self.video_file_name
             video = cv2.VideoCapture(video_fold)
             success, video_image = video.read()
             run = success
@@ -369,109 +275,112 @@ class play_video(threading.Thread):
                 pygame.display.flip()
 
 
-def get_hsence_type(json_file_name):
-    json_path = "./json/"
-    with open(json_path+json_file_name+'.json', 'r') as load_f:
-        file_content = load_f.read()
-        if "mp4" in file_content:
-            return True
-        else:
-            return False
+# 播放指令相关
+def read_adv(jsonId):
+    with open("./json/"+jsonId+'.json', 'r') as f:
+        dojson = json.load(f)
+        resources= dojson["resource"]
+        for resource in resources:
+            if "text" in resource["fileName"]:
+                fileName = resource["fileName"]
+                break
 
+    txt_path = "./resource/"+jsonId+"/"+fileName
+    commands =[]
+    with open(txt_path, "r", encoding='utf8') as f:
+        commands= f.readlines()
+    return commands
 
-def get_storyId(json_file_name):
-    json_path = "./json/"
-    with open(json_path+json_file_name+'.json', 'r') as load_f:
-        dojson = json.load(load_f)
-        return str(dojson['storyIds'][0])
+def read_command(commands,count):
+    while(count<len(commands)):
+        
+        command = commands[count].strip()
+        params = command.split(",")
+        print(count,params[0])
+        if params[0] == "name":
+            pygame.draw.rect(screen, (0,0,0), (20,730,1300,50))
+            if "<outline width=2 color=black>" in params[1] :
+                name = params[1].replace("<outline width=2 color=black>","").replace("</outline>","")
+                name = name.replace("<size=27>","").replace("</size>","")
+                if "<ruby>" in name:
+                    pattern = re.compile(r'<ruby>(.*?)</ruby>')
+                    matches = pattern.findall(text)
+                    for r in matches:
+                        name = name.replace("<ruby>"+r+"</ruby>",r.split("|")[0])
+            else:
+                name = '  '
+            name_text = text_font.render(name, True, WHITE, (0, 0, 0))
+            screen.blit(name_text, (20,730,1300,50))
 
+        elif params[0] == "bg":
+            if params[1] != "color_0_0_0":
+                img_path = "./resource/"+jsonId+"/"+params[1]
+                cg = pygame.image.load(img_path).convert_alpha()
+            else:
+                cg = pygame.image.load('color_0_0_0.jpg').convert_alpha()
+            screen.blit(cg, (10, 0))
 
-def play(play_count, meta):
-    
-    image_name = meta["resource"][play_count]["bg"]
-    text = meta["resource"][play_count]["msg"]
-    if (text != '') and (text != 'endwmsg') and translate_status:
-        text = translate_word(text)
-    voice = meta["resource"][play_count]["playvoice"]
-
-    if image_name == 'color_0_0_0':
-        cg = pygame.image.load('color_0_0_0.jpg').convert_alpha()
-        screen.blit(cg, (10, 0))
-    else:
-        cg = load_cg(storyIds, image_name)
-        cg = pygame.transform.scale(cg, CG_SIZE)
-        screen.blit(cg, (10, 0))
-
-    txt_h = 730
-    if (text != '') and (text != 'endwmsg'):
-        text_lines = text.split('\n')
-        while len(text_lines) < 4:
-            text_lines.append('')
-        for t in text_lines:
-            textRect = (10, txt_h, 1280, 50)
-            pygame.draw.rect(screen, (0,0,0), textRect)
-            text = text_font.render(t, True, WHITE, (0, 0, 0))
-            screen.blit(text, textRect)
-            txt_h = txt_h + 50
-
-    if play_count > 1:
-        if (voice != 'null') and (voice != meta["resource"][play_count-1]["playvoice"]):
-            print('./resource/'+storyIds+'/voice/'+voice)
-            pygame.mixer.music.load('./resource/'+storyIds+'/voice/'+voice)
+        elif params[0] == "playvoice":
+            voice_path = "./resource/"+jsonId+"/"+params[2]
+            pygame.mixer.music.load(voice_path)
             pygame.mixer.music.play()
 
+        elif params[0] == "movieoff":
+            global th_count
+            try:
+                globals()["th_"+th_count].set_run_count(True)
+                print("关闭上个视频线程")
+            except:
+                print(th_count)
+                print("关闭上个视频线程失败")
+        
+        elif params[0] == "movie":
+            movie_file_list = params[1].split(":")
+            if len(movie_file_list)==1:
+                movie_file= movie_file_list[0]
+            if len(movie_file_list)==2:
+                video_file = './resource/' + jsonId + '/' + movie_file_list[0]
+                video = cv2.VideoCapture(video_file)
 
-def play_anime(play_count, meta):
-    screen.fill((0, 0, 0))
-    image_name = meta["resource"][play_count]["bg"]
-    text = meta["resource"][play_count]["msg"]
-    print(text)
-    if (text != '') and (text != 'endwmsg') and translate_status:
-        text = translate_word(text)
-        print(text)
+                while True:
+                    success, video_image = video.read()
+                    if success:
+                        video_surf = pygame.image.frombuffer(
+                            video_image.tobytes(), video_image.shape[1::-1], "BGR")
+                        video_surf = pygame.transform.scale(video_surf, CG_SIZE)
+                        screen.blit(video_surf, (10, 0))
+                        pygame.display.flip()
+                    else:
+                        break
+                movie_file= movie_file_list[1]
 
-    voice = meta["resource"][play_count]["playvoice"]
-
-    print(image_name)
-
-    if image_name == 'color_0_0_0':
-        # try:
-        #     th1.set_run_count(True)
-        # except:
-        #     pass
-        cg = pygame.image.load('color_0_0_0.jpg').convert_alpha()
-        screen.blit(cg, (10, 0))
-    elif image_name != meta["resource"][play_count - 1]["bg"] :
-            if  meta["resource"][play_count - 1]["bg"]!='color_0_0_0':
-                try:
-                    prev_th_count = meta["resource"][play_count - 1]["bg"]
-                    globals()["th_"+prev_th_count].set_run_count(True)
-                except:
-                    pass
-
-            th_count = image_name
+            th_count = movie_file
             globals()["th_"+str(th_count)] = play_video()
-            globals()["th_"+str(th_count)].set_image_name(image_name)
-            globals()["th_"+str(th_count)].set_json_file_name(json_file_name)
+            globals()["th_"+str(th_count)].set_video_file_name(movie_file)
             globals()["th_"+str(th_count)].start()
             th_list.append("th_"+str(th_count))
-              
 
-    txt_h = 730
-    if (text != '') and (text != 'endwmsg'):
-        text_lines = text.split('\n')
-        for t in text_lines:
-            textRect = (10, txt_h, 1280, 50)
-            pygame.draw.rect(screen, (0,0,0), textRect)
-            text = text_font.render(t, True, WHITE, (0, 0, 0))
-            screen.blit(text, textRect)
-            txt_h = txt_h + 50
+        elif params[0] == "msg":
+            txt_h = 780
+            pygame.draw.rect(screen, (0,0,0), (0,txt_h,1300,GAME_SIZE[1]-txt_h))
+            text = params[2].replace("<outline width=2 color=black>","").replace("</outline>","")
+            text = text.replace("<size=31>","").replace("</size>","")
+            text_lines = text.split('\\n')
+            for t in text_lines:
+                textRect = (10, txt_h, 1280, 50)
+                pygame.draw.rect(screen, (0,0,0), textRect)
+                text = text_font.render(t, True, WHITE, (0, 0, 0))
+                screen.blit(text, textRect)
+                txt_h = txt_h + 50
 
-    if play_count > 1:
-        if (voice != 'null') and (voice != meta["resource"][play_count-1]["playvoice"]):
-            print('./resource/'+json_file_name+'/voice/'+voice)
-            pygame.mixer.music.load('./resource/'+json_file_name+'/voice/'+voice)
-            pygame.mixer.music.play()
+        elif params[0] == "clickwait":
+            count = count+1
+            break
+
+        else:
+            pass
+        count = count+1
+    return count
 
 #翻译相关
 #md5
@@ -553,7 +462,6 @@ game_font = pygame.font.Font('msgothic.ttc', 50)
 
 
 # rect
-next_button_rect = (1190, 900, 100, 50)
 load_butto_rect = (400, 650, 100, 50)
 play_button_rect = (800, 650, 100, 50)
 message_rect = (450, 100, 400, 50)
@@ -562,7 +470,6 @@ page_down_rect = (400, 550, 150, 50)
 loading_text_rect = (450, 850, 400, 50)
 
 # button
-text_next_button = Button(next_button_rect, "next")
 load_button = Button(load_butto_rect, 'LOAD')
 play_button = Button(play_button_rect, 'PLAY')
 pages_up_button = Button(pages_up_rect, "下一頁")
@@ -574,13 +481,15 @@ pages_down_button = Button(page_down_rect, "上一頁")
 # ————————控制参数————
 
 # 寝室id
-storyIds = ''
+jsonId = ''
 # 播放状态
 is_play = False
 is_main = True
 json_selected = False
 play_count= 0
 th_list=[]
+th_count = ""
+commands = []
 
 #翻译状态
 translate_status = get_translate_status()
@@ -592,12 +501,15 @@ else:
 json_list_page = 0
 
 # 数据
-# 寝室列表
+
+# --寝室列表
+rename_json_list()
+# 返回jsonId列表
 json_list = get_list()
 load_preview(json_list)
+
 # 寝室数量
 pages_size = math.ceil(len(json_list)/9)
-
 video_control = False
 
 
@@ -608,6 +520,7 @@ while bot_check:
         if is_main:
 
             new_list = page_list(json_list_page, json_list)
+            # jsonId赋值给了json_button（寝室预览按钮）的text属性
             json_button_list = load_list(new_list)
 
             pages_up_button.show_button()
@@ -619,8 +532,7 @@ while bot_check:
 
                 for bt in json_button_list:
                     if bt.in_rect(x, y):
-                        json_file_name = bt.text
-                        storyIds = get_storyId(json_file_name)
+                        jsonId = bt.text
                         json_selected = True
 
                 if pages_up_button.in_rect(x, y):
@@ -648,68 +560,38 @@ while bot_check:
                 y = event.pos[1]
 
                 if load_button.in_rect(x, y):
-                    get_resource(json_file_name)
+                    get_resource(jsonId)
                 if play_button.in_rect(x, y):
-                    is_play = True
-                    json_selected = False
-                    is_main = False
-                    load_meta(json_file_name)
-                    screen.fill((0, 0, 0))
+                    try:
+                        commands = read_adv(jsonId)
+                        is_play = True
+                        json_selected = False
+                        is_main = False
+                        screen.fill((0, 0, 0))
+                    except:
+                        print("先点load下载资源")
 
         if is_play:
-            length = open_meta(json_file_name)[1]
-            meta = open_meta(json_file_name)[0]
-            text_next_button.show_button()
-
             
-            if get_hsence_type(json_file_name):
-                if event.type == MOUSEBUTTONDOWN:
-                    x = event.pos[0]
-                    y = event.pos[1]
+            if event.type == MOUSEBUTTONDOWN:
+                x = event.pos[0]
+                y = event.pos[1]
 
-                    if text_next_button.in_rect(x, y) and play_count<length:
-                        play_anime(play_count,meta)
-                        play_count = play_count+1
-                    elif text_next_button.in_rect(x, y) and play_count == length:
-                        play_count = 0
-                        is_play = False
-                        is_main = True
-                        json_list_page = 0
-                        json_selected = False
-                        print("-----------end------------")
-                        try:
-                            for th in th_list:
-                                globals()[th].set_run_count(True)
-                        except:
-                            pass
-                        th_list=[]
-                        screen.fill((0,0,0))
-
-            else:
-                if event.type == MOUSEBUTTONDOWN:
-                    x = event.pos[0]
-                    y = event.pos[1]
-
-                    if text_next_button.in_rect(x, y) and play_count<length:
-                        play(play_count,meta)
-                        play_count = play_count+1
-                    elif text_next_button.in_rect(x, y) and play_count == length:
-                        play_count = 0
-                        is_play = False
-                        is_main = True
-                        json_list_page = 0
-                        json_selected = False
-                        screen.fill((0,0,0))
+                play_count = read_command(commands,play_count)
+                if play_count == len(commands):
+                    print("播放结束")
+                    play_count = 0
+                    is_play = False
+                    is_main = True
+                    json_selected = False
+                    screen.fill((0,0,0))
 
         if event.type == QUIT:
             exit()
         
-
     pygame.display.flip()
 
 print("不喜欢就爬！")
-
-
 
 while True:
     print("————————开始植入芙拉病毒————————")
