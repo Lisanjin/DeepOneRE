@@ -13,17 +13,12 @@ import requests
 import concurrent.futures
 import time
 import webbrowser
-os.makedirs("./meta/", exist_ok=True)
 os.makedirs("./resource/", exist_ok=True)
 os.makedirs("./episode/", exist_ok=True)
 
 user_setting_file =  open("settings.json",'r',encoding='utf8') 
 user_setting = json.load(user_setting_file)
 user_setting_file.close()
-
-print('----用户设置，请到setting.json中修改------')
-print(user_setting)
-print('----------------------------------------')
 
 class Button:
     rect = (0, 0, 0, 0)
@@ -170,20 +165,31 @@ def get_resource(jsonId):
 
 
 # hs列表相关
+def rename_json(path):
+    with open('./json/'+path,"r",encoding="utf8") as f:
+        json_data = json.loads(f.read())
+        new_name = str(json_data["storyIds"][0])
+        adult = str(json_data["adult"])
+        new_name = new_name+"_"+adult
+        new_name = new_name + ".json"
+    if './json/'+path =='./json/'+new_name:
+        return
+    if os.path.exists('./json/'+new_name):
+        os.rename('./json/'+new_name,'./json/'+new_name+"1")
+
+    os.rename('./json/'+path,'./json/'+new_name)
+    if os.path.exists('./json/'+new_name+"1"):
+        rename_json(new_name+"1")
 
 # 重整json格式
 def rename_json_list():
     files = os.listdir('./json/')
     for file in files:
-        with open('./json/'+file,"r",encoding="utf8") as f:
-            json_data = json.loads(f.read())
-            
-            new_name = str(json_data["storyIds"][0])
-            adult = str(json_data["adult"])
-            if adult != "1":
-                new_name = new_name+"_"+adult
-            new_name = new_name + ".json"
-        os.rename('./json/'+file,'./json/'+new_name)
+        rename_json(file)
+    files = os.listdir('./json/')
+    for file in files:
+        if "_1" in file:
+            os.rename('./json/'+file,'./json/'+file.replace("_1",""))
 
 # 获取列表
 def get_list():
@@ -253,6 +259,7 @@ class play_video(threading.Thread):
             success, video_image = video.read()
             run = success
             while run:
+                clock.tick(30)
                 if self.run_count:
                     break
                 for event in pygame.event.get():
@@ -304,7 +311,7 @@ def read_command(commands,count):
                 name = name.replace("<size=27>","").replace("</size>","")
                 if "<ruby>" in name:
                     pattern = re.compile(r'<ruby>(.*?)</ruby>')
-                    matches = pattern.findall(text)
+                    matches = pattern.findall(name)
                     for r in matches:
                         name = name.replace("<ruby>"+r+"</ruby>",r.split("|")[0])
             else:
@@ -343,6 +350,7 @@ def read_command(commands,count):
                 video = cv2.VideoCapture(video_file)
 
                 while True:
+                    clock.tick(30)
                     success, video_image = video.read()
                     if success:
                         video_surf = pygame.image.frombuffer(
@@ -355,23 +363,48 @@ def read_command(commands,count):
                 movie_file= movie_file_list[1]
 
             th_count = movie_file
+            try:
+                for th in th_list:
+                    globals()[th].set_run_count(True)
+            except:
+                pass
             globals()["th_"+str(th_count)] = play_video()
             globals()["th_"+str(th_count)].set_video_file_name(movie_file)
             globals()["th_"+str(th_count)].start()
             th_list.append("th_"+str(th_count))
+            
 
         elif params[0] == "msg":
-            txt_h = 780
-            pygame.draw.rect(screen, (0,0,0), (0,txt_h,1300,GAME_SIZE[1]-txt_h))
-            text = params[2].replace("<outline width=2 color=black>","").replace("</outline>","")
-            text = text.replace("<size=31>","").replace("</size>","")
-            text_lines = text.split('\\n')
-            for t in text_lines:
-                textRect = (10, txt_h, 1280, 50)
-                pygame.draw.rect(screen, (0,0,0), textRect)
-                text = text_font.render(t, True, WHITE, (0, 0, 0))
-                screen.blit(text, textRect)
-                txt_h = txt_h + 50
+            if params[1] == '0':
+                pass
+            else:
+                txt_h = 780
+                pygame.draw.rect(screen, (0,0,0), (0,txt_h,1300,GAME_SIZE[1]-txt_h))
+                text = params[2].replace("<outline width=2 color=black>","").replace("</outline>","")
+                text = text.replace("<size=31>","").replace("</size>","")
+                if translate_status:
+                    try:
+                        translate_text = translate_dict[str(count)]
+                        translate_tmp[count] = translate_text
+                        text_lines = translate_text.split('\\n')
+                    except Exception as e:
+                        try:
+                            print("字典调用失败,尝试翻译")
+                            translate_text = translate_word(text)
+                            translate_tmp[count] = translate_text
+                            text_lines = translate_text.split('\\n')
+                        except:
+                            print("翻译失败,尝试使用原文")
+                            text_lines = text.split('\\n')
+                else:
+                    text_lines = text.split('\\n')
+
+                for t in text_lines:
+                    textRect = (10, txt_h, 1280, 50)
+                    pygame.draw.rect(screen, (0,0,0), textRect)
+                    text = text_font.render(t, True, WHITE, (0, 0, 0))
+                    screen.blit(text, textRect)
+                    txt_h = txt_h + 50
 
         elif params[0] == "clickwait":
             count = count+1
@@ -396,7 +429,6 @@ def translate_word(q):
     from_lang = 'jp'
     to_lang = translate_to_language
     salt = '1435660288'
-
 
     appid = translate_appid
     secret_key = translate_secret_key
@@ -456,7 +488,7 @@ bot_check = True if user_setting['是否喜欢furau'] == 'yes' else False
 pygame.init()
 pygame.mixer.init()
 pygame.display.set_caption("DeepOne")
-
+clock = pygame.time.Clock()
 screen = pygame.display.set_mode(GAME_SIZE, 0, 32)
 game_font = pygame.font.Font('msgothic.ttc', 50)
 
@@ -501,17 +533,22 @@ else:
 json_list_page = 0
 
 # 数据
-
+translate_tmp = {}
+translate_dict = {}
 # --寝室列表
 rename_json_list()
 # 返回jsonId列表
 json_list = get_list()
+print(json_list)
 load_preview(json_list)
 
 # 寝室数量
 pages_size = math.ceil(len(json_list)/9)
 video_control = False
 
+print('----用户设置，请到setting.json中修改------')
+print(user_setting)
+print('----------------------------------------')
 
 while bot_check:
 
@@ -564,6 +601,9 @@ while bot_check:
                 if play_button.in_rect(x, y):
                     try:
                         commands = read_adv(jsonId)
+                        if translate_status and os.path.exists("./resource/"+jsonId+"/"+jsonId+'_translate.json'):
+                            with open("./resource/"+jsonId+"/"+jsonId+'_translate.json', 'r',encoding='utf8') as f:
+                                translate_dict = json.load(f)
                         is_play = True
                         json_selected = False
                         is_main = False
@@ -584,6 +624,14 @@ while bot_check:
                     is_play = False
                     is_main = True
                     json_selected = False
+                    try:
+                        for th in th_list:
+                            globals()[th].set_run_count(True)
+                    except:
+                        pass
+                    with open("./resource/"+jsonId+"/"+jsonId+'_translate.json', 'w',encoding='utf8') as f:
+                        json.dump(translate_tmp, f, ensure_ascii=False, indent=4)
+                    translate_tmp = {}
                     screen.fill((0,0,0))
 
         if event.type == QUIT:
