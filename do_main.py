@@ -156,6 +156,10 @@ def get_resource(jsonId):
             end = fileName.split(".")[-1]
 
             url = "https://tonofura-r-cdn-resource.deepone-online.com/deep_one/download_adv/" + path+"/"+md5+"."+ end
+
+            if ".txt" in fileName:
+                cn_url = "https://lisanjin.github.io//DeepOne_translate_CN/"+r['fileName']
+                file_dict[cn_url] = fileName.replace(".txt","_CN.txt")
             file_dict[url] = fileName
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=下载线程数) as executor:
@@ -292,7 +296,10 @@ def read_adv(jsonId):
                 fileName = resource["fileName"]
                 break
 
-    txt_path = "./resource/"+jsonId+"/"+fileName
+    if use_translate:
+        txt_path = "./resource/"+jsonId+"/"+fileName.replace(".txt","_CN.txt")
+    else:
+        txt_path = "./resource/"+jsonId+"/"+fileName
     commands =[]
     with open(txt_path, "r", encoding='utf8') as f:
         commands= f.readlines()
@@ -382,22 +389,7 @@ def read_command(commands,count):
                 pygame.draw.rect(screen, (0,0,0), (0,txt_h,1300,GAME_SIZE[1]-txt_h))
                 text = params[2].replace("<outline width=2 color=black>","").replace("</outline>","")
                 text = text.replace("<size=31>","").replace("</size>","")
-                if translate_status:
-                    try:
-                        translate_text = translate_dict[str(count)]
-                        translate_tmp[count] = translate_text
-                        text_lines = translate_text.split('\\n')
-                    except Exception as e:
-                        try:
-                            print("字典调用失败,尝试翻译")
-                            translate_text = translate_word(text)
-                            translate_tmp[count] = translate_text
-                            text_lines = translate_text.split('\\n')
-                        except:
-                            print("翻译失败,尝试使用原文")
-                            text_lines = text.split('\\n')
-                else:
-                    text_lines = text.split('\\n')
+                text_lines = text.split('\\n')
 
                 for t in text_lines:
                     textRect = (10, txt_h, 1280, 50)
@@ -422,49 +414,7 @@ def generate_sign(appid, q, salt, secret_key):
     sign = hashlib.md5(sign_str.encode()).hexdigest()
     return sign
 
-#翻译请求
-def translate_word(q):
-    base_url = 'http://api.fanyi.baidu.com/api/trans/vip/translate'
-
-    from_lang = 'jp'
-    to_lang = translate_to_language
-    salt = '1435660288'
-
-    appid = translate_appid
-    secret_key = translate_secret_key
-
-    sign = generate_sign(appid, q, salt, secret_key)
-    # 请求参数
-    params = {
-        'q': q,
-        'from': from_lang,
-        'to': to_lang,
-        'appid': appid,
-        'salt': salt,
-        'sign': sign
-    }
-
-    response = requests.get(base_url, params=params)
-    translation = response.json()['trans_result'][0]['dst']
-    return translation
-
-def get_translate_status():
-    if use_translate:
-        try:
-            if translate_word("幻夢境") == "幻梦境":
-                print("翻译可用")
-                return True
-            else:
-                print("翻译不可用")
-                return False
-        except:
-            print("翻译不可用")
-            return False
-    else:
-        return use_translate
     
-        
-
 # 常量
 
 WHITE = (255, 255, 255)
@@ -479,9 +429,6 @@ GAME_SIZE = (display_width, display_height)
 
 下载线程数 = user_setting['下载线程数']
 use_translate = True if user_setting['翻译api']['use_translate'] == 'yes' else False
-translate_appid = user_setting['翻译api']['appid']
-translate_secret_key = user_setting['翻译api']['secret_key']
-translate_to_language = user_setting['翻译api']['to_language']
 bot_check = True if user_setting['是否喜欢furau'] == 'yes' else False
 
 # 初始化
@@ -524,17 +471,13 @@ th_count = ""
 commands = []
 
 #翻译状态
-translate_status = get_translate_status()
-if translate_status:
+if use_translate:
     text_font = pygame.font.Font('SIMFANG.TTF', 30)
 else:
     text_font = pygame.font.Font('msgothic.ttc', 30)
 # 初始页码
 json_list_page = 0
 
-# 数据
-translate_tmp = {}
-translate_dict = {}
 # --寝室列表
 rename_json_list()
 # 返回jsonId列表
@@ -601,9 +544,6 @@ while bot_check:
                 if play_button.in_rect(x, y):
                     try:
                         commands = read_adv(jsonId)
-                        if translate_status and os.path.exists("./resource/"+jsonId+"/"+jsonId+'_translate.json'):
-                            with open("./resource/"+jsonId+"/"+jsonId+'_translate.json', 'r',encoding='utf8') as f:
-                                translate_dict = json.load(f)
                         is_play = True
                         json_selected = False
                         is_main = False
@@ -629,9 +569,6 @@ while bot_check:
                             globals()[th].set_run_count(True)
                     except:
                         pass
-                    with open("./resource/"+jsonId+"/"+jsonId+'_translate.json', 'w',encoding='utf8') as f:
-                        json.dump(translate_tmp, f, ensure_ascii=False, indent=4)
-                    translate_tmp = {}
                     screen.fill((0,0,0))
 
         if event.type == QUIT:

@@ -9,3 +9,4 @@ test.py
 *.spec
 /build/*
 /json/*
+*.dll

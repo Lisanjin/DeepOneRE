@@ -40,3 +40,6 @@
 修复了视频不能正确结束的bug  
 添加了机翻，以及机翻缓存，现在会优先加载缓存里的翻译文本  
 修复了libmpg123-0.dll缺失的问题（新的打包命令）  
+
+`5.10`  
+移除了百度翻译的接口，改为使用[DeepOne_translate_CN](https://github.com/Lisanjin/DeepOne_translate_CN)提供的gpt翻译  
