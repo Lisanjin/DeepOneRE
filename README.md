@@ -43,3 +43,6 @@
 
 `5.10`  
 移除了百度翻译的接口，改为使用[DeepOne_translate_CN](https://github.com/Lisanjin/DeepOne_translate_CN)提供的gpt翻译  
+
+`25.4.5`  
+添加了一个把hs导出为mp4的功能，目前只支持导出静态的hs，需要ffmpeg

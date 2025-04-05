@@ -1,3 +1,5 @@
 pygame
 opencv-python
 requests
+pydub
+ffmpeg-python

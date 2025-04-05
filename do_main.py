@@ -13,6 +13,8 @@ import requests
 import concurrent.futures
 import time
 import webbrowser
+from json2mp4 import export_video
+
 os.makedirs("./resource/", exist_ok=True)
 os.makedirs("./episode/", exist_ok=True)
 
@@ -382,9 +384,6 @@ def read_command(commands,count):
             
 
         elif params[0] == "msg":
-            if params[1] == '0':
-                pass
-            else:
                 txt_h = 780
                 pygame.draw.rect(screen, (0,0,0), (0,txt_h,1300,GAME_SIZE[1]-txt_h))
                 text = params[2].replace("<outline width=2 color=black>","").replace("</outline>","")
@@ -442,6 +441,7 @@ game_font = pygame.font.Font('msgothic.ttc', 50)
 
 # rect
 load_butto_rect = (400, 650, 100, 50)
+export_button_rect = (600, 650, 100, 50)
 play_button_rect = (800, 650, 100, 50)
 message_rect = (450, 100, 400, 50)
 pages_up_rect = (800, 550, 150, 50)
@@ -450,7 +450,8 @@ loading_text_rect = (450, 850, 400, 50)
 
 # button
 load_button = Button(load_butto_rect, 'LOAD')
-play_button = Button(play_button_rect, 'PLAY')
+export_button = Button(export_button_rect, '开導')
+play_button = Button(play_button_rect, '开冲')
 pages_up_button = Button(pages_up_rect, "下一頁")
 pages_down_button = Button(page_down_rect, "上一頁")
 
@@ -533,6 +534,7 @@ while bot_check:
 
         if json_selected:
             load_button.show_button()
+            export_button.show_button()
             play_button.show_button()
 
             if event.type == MOUSEBUTTONDOWN:
@@ -541,6 +543,14 @@ while bot_check:
 
                 if load_button.in_rect(x, y):
                     get_resource(jsonId)
+                if export_button.in_rect(x, y):
+                    try:
+                        print("开始导出")
+                        export_video(jsonId,use_translate)
+                        print("导完")
+                    except:
+                        print("先点load下载资源")
+
                 if play_button.in_rect(x, y):
                     try:
                         commands = read_adv(jsonId)
