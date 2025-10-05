@@ -5,5 +5,12 @@
     "窗口高度":960,
     "翻译api":{
         "use_translate":"yes"
+    },
+    "代理":{
+        "use_proxy":"no",
+        "proxy":{
+            "http":"http://127.0.0.1:7890",
+            "https":"http://127.0.0.1:7890"
+        }
     }
 }

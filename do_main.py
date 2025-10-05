@@ -2,18 +2,18 @@ import pygame
 import os,re
 import json
 import math
-from urllib.request import urlretrieve
+import requests
 from pygame.locals import *
 from random import randrange
 from sys import exit
 import cv2
 import threading
 import hashlib
-import requests
 import concurrent.futures
 import time
 import webbrowser
 from json2mp4 import export_video
+import time
 
 os.makedirs("./resource/", exist_ok=True)
 os.makedirs("./episode/", exist_ok=True)
@@ -113,23 +113,36 @@ def get_url(file_name):
         file_end = '.atlas.txt'
     return cdn_url+path+md5+file_end
 
-def download_file(url, filename):
-
-    print(f'Downloading {filename}...')
+def download_file(url, filename, retries=5, timeout=15):
+    
     if os.path.exists(filename):
-        print(f'{filename} 已下载，跳过.')
-        return
-    download_times = 5
-    while download_times > 0:
+        print(f'✅ {filename} 已存在，跳过下载。')
+        return True
+
+    print(f'⬇️ 正在下载 {filename}...')
+    for attempt in range(1, retries + 1):
         try:
-            urlretrieve(url, filename)
-        except:
-            print("error downloading : " + filename)
-            download_times = download_times - 1
-            continue
-        else:
-            break
-    print(f'{filename} downloaded.')
+            proxies = None
+            if user_setting["代理"]["use_proxy"] == "yes":
+                proxies = user_setting["代理"]["proxy"]
+                
+            response = requests.get(url, timeout=timeout, proxies=proxies)
+            response.raise_for_status()
+            with open(filename, 'wb') as f:
+                f.write(response.content)
+            print(f'✅ {filename} 下载完成。')
+            return True
+
+        except requests.RequestException as e:
+            print(f'⚠️ 第 {attempt}/{retries} 次下载失败: {e}')
+            if os.path.exists(filename):
+                os.remove(filename)
+            if attempt < retries:
+                print('重试中...')
+                time.sleep(2)
+            else:
+                print(f'❌ {filename} 下载失败，已超过最大重试次数。')
+                return False
 
 # 加载预览图
 def load_preview(json_list):
@@ -548,8 +561,8 @@ while bot_check:
                         print("开始导出")
                         export_video(jsonId,use_translate)
                         print("导完")
-                    except:
-                        print("先点load下载资源")
+                    except Exception as e:
+                        print(e)
 
                 if play_button.in_rect(x, y):
                     try:

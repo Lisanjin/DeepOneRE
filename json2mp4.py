@@ -44,7 +44,7 @@ def export_video(jsonId,use_translate = False):
             if params[1] != "color_0_0_0":
                 bg_path = "./resource/"+jsonId+"/"+params[1]
             else:
-                bg_path = "color_0_0_0.png"
+                bg_path = "color_0_0_0.jpg"
 
             if recording_bg_path != bg_path:
                 movie_info.append({
@@ -98,26 +98,31 @@ def get_voice_length(path):
     return duration_seconds,audio
 
 def get_movie(movie_info, jsonId):
-    # 用来保存生成视频流的输入参数列表
     inputs = []
 
-    # 遍历 movie_info 列表，生成每个视频流并拼接
     for index, movie in enumerate(movie_info):
         bg_path = movie["recording_bg_path"]
         length = movie["movie_length"]
         
-        # 使用 ffmpeg 创建视频流
-        video_stream = ffmpeg.input(bg_path, loop=1, framerate=5, t=length).filter("setsar", "1")
-        inputs.append(video_stream)
+        if length > 0:
+            video_stream = ffmpeg.input(bg_path, loop=1, framerate=5, t=length).filter("setsar", "1")
+            inputs.append(video_stream)
+        else:
+            print(f"Skipping video stream with length 0 for {bg_path}") 
+
+    if not inputs:
+        print("No valid video streams to concatenate. Exiting get_movie.")
+        return
 
     audio_file = f'./resource/{jsonId}/{jsonId}.mp3'
     audio_stream = ffmpeg.input(audio_file)
 
-    # 使用 ffmpeg 拼接视频流
     output_file = f'./resource/{jsonId}/{jsonId}.mp4'
-    concat_video = ffmpeg.concat(*inputs, v=1, a=0)  # 拼接视频流
-    output = ffmpeg.output(concat_video, audio_stream, output_file, acodec='aac')  # 移除 vcodec='copy'
-    ffmpeg.run(output)
+    
+    concat_video = ffmpeg.concat(*inputs, v=1, a=0)  
+    
+    output = ffmpeg.output(concat_video, audio_stream, output_file, acodec='aac', pix_fmt='yuv420p')
+    ffmpeg.run(output, overwrite_output=True)
 
 def get_srt(jsonId,srt_info):
     srt_text = ""
